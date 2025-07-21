@@ -4182,6 +4182,24 @@ public class Blocks{
                 rangeChange = 40f;
                 buildingDamageMultiplier = 0.3f;
             }},
+            Items.silicon, new BasicBulletType(15f, 30/0.75f){{
+                width = 12f;
+                height = 18f;
+                hitSize = 7f;
+                homingPower = 0.7f;
+                shootEffect = sfe;
+                smokeEffect = Fx.shootBigSmoke;
+                ammoMultiplier = 1;
+                reloadMultiplier = 3f;
+                pierceCap = 4;
+                pierce = true;
+                hitColor = backColor = trailColor = Pal.siliconAmmoBack;
+                frontColor = Pal.siliconAmmoFront;
+                trailWidth = 2f;
+                trailLength = 12;
+                hitEffect = despawnEffect = Fx.hitBulletColor;
+                buildingDamageMultiplier = 0.2f;
+            }},
             Items.carbide, new BasicBulletType(12f, 325f/0.75f){{
                 width = 15f;
                 height = 21f;
