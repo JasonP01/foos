@@ -304,8 +304,7 @@ object Main : ApplicationListener {
 
     private fun sendBuildPlans(num: Int = 500) {
         var count = 0
-        val unit = Vars.player.unit()
-        if (unit == null) return
+        val unit = Vars.player.unit() ?: return
         val toSend = unit.plans.toList().takeLastWhile { !BuildPlanCommunicationSystem.isNetworking(it) && count++ < num }.toTypedArray()
         if (toSend.isEmpty()) return
         isSendingPlans = true
@@ -341,7 +340,7 @@ object Main : ApplicationListener {
                     Vars.ui.chatfrag.addMessage(transmission.content,
                         keyStorage.aliasOrName(system.peer.expectedCert),
                         ClientVars.encrypted,
-                        "${Iconc.ok}[white]${keyStorage.aliasOrName(system.peer.expectedCert)}[accent] -> [coral] ${keyStorage.cert()?.readableName ?: "you"}",
+                        "[green]${Iconc.ok} [coral][[[white]${keyStorage.aliasOrName(system.peer.expectedCert)}[accent] -> [white]${keyStorage.cert()?.readableName ?: "you"}[coral]]:[white] ",
                         transmission.content
                     ).run { prefix = "${Iconc.ok} $prefix " }
                 }

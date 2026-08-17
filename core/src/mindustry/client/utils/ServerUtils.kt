@@ -5,6 +5,9 @@ package mindustry.client.utils
 import arc.*
 import arc.func.*
 import arc.util.*
+import arc.util.serialization.JsonReader
+import arc.util.serialization.JsonValue
+import arc.util.serialization.Jval
 import mindustry.Vars.*
 import mindustry.client.*
 import mindustry.client.antigrief.*
@@ -21,6 +24,8 @@ import mindustry.ui.fragments.ChatFragment.*
 import java.lang.reflect.*
 import kotlin.properties.*
 import kotlin.random.*
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
 
 sealed class Server(
     private val groupName: String? = null,
@@ -32,6 +37,7 @@ sealed class Server(
     @JvmField val mute: Cmd = Cmd("/mute", -1),
     @JvmField val unmute: Cmd = Cmd("/unmute", -1),
     @JvmField val ghost: Boolean = false,
+    val networkTileLogs: Boolean = false,
     private val votekickString: String = "Type[orange] /vote <y/n>[] to agree.",
 ) {
     /** Converts a player to a copyable server-specific player identifier. Alt-click in the tab list will copy to clipboard. */
@@ -58,9 +64,8 @@ sealed class Server(
 
     /** Handle clickable buttons */
     open fun handleButtons(msg: ChatMessage) {
-        if (rtv.canRun()) msg.addButton(rtv.str, rtv::invoke) // FINISHME: I believe cn has a no option? not too sure
+        if (rtv.canRun()) msg.addButton(rtv.str, rtv::invoke) // FINISHME: cn has a no option implement it (/rtv n)
 //        if (kick.canRun()) msg.addButton(kick.str, kick::invoke) FINISHME: Implement votekick buttons here
-//        FINISHME: Add cn excavate buttons
     }
 
     /** Run when banning [p] */
@@ -71,6 +76,12 @@ sealed class Server(
 
     /** Run when muting [p] */
     open fun handleMute(p: Player) {}
+
+    /** Handles a custom generic vote packet from the server. voteType automatically parsed from the packet */
+    open fun handleVote(voteType: String, data: String) {}
+
+    /** Handles login for when a server has an accounts system */
+    open fun handleLogin() {}
 
     /** Whether the player has access to the admin ui in the player list */
     open fun adminui() = player.admin
@@ -100,13 +111,12 @@ sealed class Server(
         @JvmField val nydus = Nydus
         @JvmField val cn = CN
         @JvmField val io = IO
-        @JvmField val phoenix = Phoenix
         @JvmField val korea = Korea
         @JvmField val fish = Fish
         @JvmField val darkdustry = Darkdustry
         @JvmField val corium = Corium
 
-        private val servers = listOf(other, nydus, cn, io, phoenix, korea, fish, darkdustry, corium)
+        private val servers = listOf(other, nydus, cn, io, korea, fish, darkdustry, corium)
 
         open class Cmd(val str: String, private val rank: Int = 0) { // 0 = anyone, -1 = disabled
             val enabled = rank != -1
@@ -145,21 +155,34 @@ sealed class Server(
             Log.debug("Joining server, override set to: ${current.name}")
         }
 
+        /** The destination ip and port of the server that we will be sent to by [mindustry.core.NetClient.connect] */
+        @JvmField var destinationServer: String? = null
+
         init {
             Events.on(MenuReturnEvent::class.java) {
                 current = Other
                 current.joined()
                 Log.debug("Returning to menu, server, mode override cleared")
             }
-        }
 
-        /** The destination ip and port of the server that we will be sent to by [mindustry.core.NetClient.connect] */
-        @JvmField var destinationServer: String? = null
+            Events.on(ServerJoinEvent::class.java) {
+                current.handleLogin()
+            }
+
+            // Anything below for server specific packet handlers - More abhorentness :)
+            netClient.addPacketHandler("vote") {
+                try {
+                    val json = JsonReader().parse(it)
+                    val type = json.getString("type", "unknown")
+
+                    current.handleVote(type, it)
+                } catch (e: Exception) {
+                    Log.err("Failed to parse generic vote packet", e)
+                }
+            }
+        }
     }
 }
-
-
-
 
 object Other : Server()
 
@@ -167,41 +190,73 @@ object Nydus : Server(groupName = "nydus") {
     override fun isJoinedServer(group: List<String>?, host: Host?) = host?.name?.contains("nydus") == true
 }
 
-object CN : Server(groupName = "Chaotic Neutral", rtv = Companion.Cmd("/rtv")) {
-    // TODO: Implement freeze button on tab menu... i really need it :'(
+object CN : Server(
+    groupName = "Chaotic Neutral",
+    rtv = Companion.Cmd("/rtv"),
+    freeze = Companion.Cmd("/freeze", 3),
+    mute = Companion.Cmd("/mute", 3),
+    unmute = Companion.Cmd("/pardon", 3), // not implemented
+) {
+    // TODO: Make the moderation handlers use Moderation.kt
     override fun adminui() = player.admin || ClientVars.rank >= 2
-    override fun blockMessage(msg: String?, unformatted: String?, sender: Player?): Boolean {
-        msg ?: return false
-        if (player.admin && ClientVars.rank < 2) ClientVars.rank = 2
 
-        if ("Type [accent]/e y[] to remove the walls in-between [red](" !in msg) return false
+    // Support for CN Testing port 50016 (Non BE Testing)
+    override fun isJoinedServer(group: List<String>?, host: Host?) = super.isJoinedServer(group, host) || (host?.address == "5.196.91.230")
 
-        val voteSetting = Core.settings.getInt("autoexcavatevote")
-        val isAdmin = player.admin || ClientVars.rank >= 2
-        val isOwnVote = player.name.stripColors() in msg.stripColors()
+    override fun handleFreeze(p: Player) {
+        Call.serverPacketReliable("foosModeration", Jval.newObject().apply {
+            put("targetID", p.id)
+            put("type", "freeze")
+            put("reason", "Moderator Freeze")
+            put("duration", 10.minutes.inWholeMilliseconds)
+        }.toString())
+    }
 
-        if (voteSetting == 0) return false // Disabled: no action.
+    override fun handleMute(p: Player) {
+        Call.serverPacketReliable("foosModeration", Jval.newObject().apply {
+            put("targetID", p.id)
+            put("type", "mute")
+            put("reason", "Moderator Mute")
+            put("duration", 1.hours.inWholeMilliseconds)
+        }.toString())
+    }
 
-        if (isOwnVote) {
-            if (!isAdmin) return false // Non-admin can't interact with own vote.
-            when (voteSetting) {
-                1 -> Call.sendChatMessage("/e c") // Always no -> cancel
-                2 -> Call.sendChatMessage("/e f") // Always yes -> force
-                3 -> { // Random not allowed on own vote, but force randomly c/f
-                    val rand = if (Random.nextBoolean()) "f" else "c"
-                    Call.sendChatMessage("/e $rand")
-                }
-            }
-        } else {
+    override fun handleVote(voteType: String, data: String) {
+        // TODO: votekick auto handler?
+        if (voteType == "excavate") {
+            val voteSetting = Core.settings.getInt("autoexcavatevote")
             val vote = when (voteSetting) {
-                1 -> if (isAdmin) "c" else "n"
-                2 -> if (isAdmin) "f" else "y"
-                3 -> if (Random.nextBoolean()) "y" else "n"
-                else -> return false
+                1 -> false
+                2 -> true
+                3 -> Random.nextBoolean()
+                else -> return
             }
-            Call.sendChatMessage("/e $vote")
+            val force: Boolean = ClientVars.rank >= 2
+            val json = Jval.newObject().apply {
+                put("vote", vote)
+                put("force", force)
+            }
+            Call.serverPacketReliable("excavateVote", json.toString())
         }
-        return false
+    }
+
+    override fun handleLogin() {
+        // Worlds most secure account information - REALLY need a better thing than this
+        try {
+            val info = Core.settings.getString("cnpw", "UNKNOWN")
+            if (info == "UNKNOWN") return
+            val username = info.split(" ")[0]
+            val password = info.split(" ")[1]
+            val json = Jval.newObject().apply {
+                put("username", username)
+                put("password", password)
+            }
+            Call.serverPacketReliable("login", json.toString())
+        } catch (e: IndexOutOfBoundsException) {
+            // TODO: Shitty string, make it better
+            Log.err("Login Password setting indexing corrupted: ", e)
+            player.sendMessage("Your username or password is corrupted, change your password")
+        }
     }
 }
 
@@ -258,29 +313,6 @@ object IO : Server(
         }
     }
 
-    override fun blockMessage(msg: String?, unformatted: String?, sender: Player?): Boolean {
-        msg ?: return false
-        if (CustomMode.flood() && (msg.stripColors().contains("player code: SMEX4T -") || msg.stripColors().contains("player code: KDWUUE")) && Core.settings.getBool("forcestevetutorial", false) && (ClientVars.rank > 5 || player.admin)) {
-            val name = msg.split(" - ", limit = 2)[1].stripColors()
-            Groups.player.find { it.name.contains(name, ignoreCase = true) }?.let { p ->
-                Call.sendChatMessage("/forcetutorial ${p.id}")
-                Call.sendChatMessage("/forcetutorial f")
-                return false
-            }
-        }
-        return false
-    }
-
-    override fun getStats(player: Player, force: Boolean) = if (Core.settings.getBool("autostats") || force) Call.serverPacketReliable("playerdata_by_id", player.id.toString()) else Unit
-}
-
-object Phoenix : Server(
-    groupName = "Phoenix Network",
-    whisper = Companion.Cmd("/w"),
-    rtv = Companion.Cmd("/rtv"),
-    freeze = Companion.Cmd("/freeze", 9),
-    votekickString = "Type [cyan]/vote y"
-) {
     override fun getStats(player: Player, force: Boolean) = if (Core.settings.getBool("autostats") || force) Call.serverPacketReliable("playerdata_by_id", player.id.toString()) else Unit
 }
 
@@ -346,7 +378,8 @@ object Corium : Server(
     freeze = Companion.Cmd("/freeze", 5),
     thaw = Companion.Cmd("/thaw", 5),
     mute = Companion.Cmd("/mute", 5),
-    unmute = Companion.Cmd("/unmute", 5)
+    unmute = Companion.Cmd("/unmute", 5),
+    networkTileLogs = true
 ) { // FINISHME: Implement everything else specific to corium
     init {
         netClient.addPacketHandler("playerCode") {
@@ -413,9 +446,6 @@ object Corium : Server(
         ClientVars.ratelimitRemaining = ratelimitMax
     }
 }
-
-
-
 
 fun handleKick(reason: String) {
     Log.debug("Kicked from server '${ui.join.lastHost?.name ?: "unknown"}' for: '$reason'.")

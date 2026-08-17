@@ -49,7 +49,7 @@ enum class CustomMode(
                 fun download(update: Boolean = false) { // Downloads and enables the mod
                     Toast(3f).add(if (update) "Updating" else "Installing" + " FloodCompat")
                     Log.debug(if (update) "Updating" else "Installing" + " FloodCompat")
-                    ui.mods.githubImportMod(floodCompatRepo, true, null, floodMod?.meta?.version) {
+                    ui.mods.githubImportMod(floodCompatRepo, true, null, false, floodMod?.meta?.version) {
                         val new = mods.mods.last { it.name == "floodcompat"} // newly downloaded flood compat if any
                         val installed = !update || new != floodMod
                         if (update && installed) { // Delete old flood mod for update. If new == old, there was no update.
@@ -93,7 +93,8 @@ enum class CustomMode(
 
         init {
             Events.on(WorldLoadEvent::class.java) {
-                val modeName = if (!net.client() || ui.join.lastHost?.modeName?.isBlank() != false) state.rules.modeName?.lowercase() else ui.join.lastHost.modeName.lowercase()
+                var modeName = if (!net.client() || ui.join.lastHost?.modeName?.isBlank() != false) state.rules.modeName?.lowercase() else ui.join.lastHost.modeName.lowercase()
+                if (modeName == "flood pvp") modeName = "flood" // lazy way to support floodpvp
                 current = entries.find { (it.modeName ?: it.name) == modeName } ?: none // If modeName (or just the enum name if modeName is unspecified) matches, setup this mode
             }
 

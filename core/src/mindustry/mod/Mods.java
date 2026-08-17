@@ -43,6 +43,9 @@ public class Mods implements Loadable{
     //new patch API as of build 159 breaks older versions of the patch editor
     "patch-editor:1.10.1", "patch-editor:1.10.0", "patch-editor:1.9.5", "patch-editor:1.9.4", "patch-editor:1.9.3"
     );
+    private static final ObjectSet<String> blacklistedRepos = ObjectSet.with(
+    "anthropiccom/lithium4mindustry"
+    );
 
     private Json json = new Json();
     private @Nullable Scripts scripts;
@@ -120,6 +123,11 @@ public class Mods implements Loadable{
 
     /** Imports an external mod file. Folders are not supported here. */
     public LoadedMod importMod(Fi file) throws IOException{
+        return importMod(file, true);
+    }
+
+    /** Imports an external mod file. Folders are not supported here. */
+    public LoadedMod importMod(Fi file, boolean forceEnable) throws IOException{
         //for some reason, android likes to add colons to file names, e.g. primary:ExampleJavaMod.jar, which breaks dexing
         String baseName = file.nameWithoutExtension().replace(':', '_').replace(' ', '_');
         String finalName = baseName;
@@ -135,16 +143,14 @@ public class Mods implements Loadable{
             file.copyTo(dest);
 
             var loaded = loadMod(dest, true, true);
-            if(!loaded.isAutoUpdating) { // If this was imported as an auto update, don't run any code relating to importing the mod.
-                mods.add(loaded);
-                newImports.add(loaded);
-                //invalidate ordered mods cache
-                lastOrderedMods = null;
-                requiresReload = true;
-                //enable the mod on import
-                Core.settings.put("mod-" + loaded.name + "-enabled", true);
-                sortMods();
-            }
+            mods.add(loaded);
+            newImports.add(loaded);
+            //invalidate ordered mods cache
+            lastOrderedMods = null;
+            requiresReload = true;
+            //enable the mod on import
+            if(forceEnable) Core.settings.put("mod-" + loaded.name + "-enabled", true);
+            sortMods();
             //try to load the mod's icon so it displays on import
             Core.app.post(() -> loadIcon(loaded));
 
@@ -861,65 +867,7 @@ public class Mods implements Loadable{
     }
 
     private void downloadDependencies(Seq<String> toImport){
-        Seq<String> remaining = toImport.copy();
-        ui.mods.importDependencies(remaining, () -> {
-            toImport.removeAll(remaining);
-            if(toImport.any()) requiresReload = true;
-            displayDependencyImportStatus(remaining, toImport);
-        });
-    }
-
-    private void displayDependencyImportStatus(Seq<String> failed, Seq<String> success){
-        new Dialog(""){{
-            setFillParent(true);
-            cont.margin(15);
-
-            cont.add("@mod.dependencies.status").color(Pal.accent).center();
-            cont.row();
-            cont.image().width(300f).pad(2).height(4f).color(Pal.accent);
-            cont.row();
-
-            cont.pane(p -> {
-                if(success.any()){
-                    p.add("@mod.dependencies.success").color(Pal.accent).wrap().fillX().left().labelAlign(Align.left);
-                    p.row();
-                    p.table(t -> {
-                        success.each(d -> {
-                            t.add("[accent] > []" + d).wrap().growX().left().labelAlign(Align.left);
-                            t.row();
-                        });
-                    }).growX().padBottom(8f).padLeft(8f);
-                    p.row();
-                }
-
-                if(failed.any()){
-                    p.add("@mod.dependencies.failure").color(Color.scarlet).wrap().fillX().left().labelAlign(Align.left);
-                    p.row();
-                    p.table(t -> {
-                        failed.each(d -> {
-                            t.add("[scarlet] > []" + d).wrap().growX().left().labelAlign(Align.left);
-                            t.row();
-                        });
-                    }).growX().padBottom(8f).padLeft(8f);
-                }
-            }).fillX();
-            cont.row();
-
-            if(success.any()){
-                cont.image().width(300f).pad(2).height(4f).color(Pal.accent);
-                cont.row();
-                cont.add("@mods.reloadexit").center();
-                cont.row();
-
-                hidden(() -> {
-                    Log.info("Exiting to reload mods after dependency auto-import.");
-                    Core.app.exit();
-                });
-            }
-
-            cont.button("@ok", this::hide).size(300, 50);
-            closeOnBack();
-        }}.show();
+        ui.mods.browser.downloadDependencies(toImport, results -> requiresReload |= results.any());
     }
 
     public void reload(){
@@ -1101,7 +1049,13 @@ public class Mods implements Loadable{
         return getModStrings().removeAll(out::remove);
     }
 
+    //TODO: deprecate?
     public Seq<LoadedMod> list(){
+        return mods;
+    }
+
+    /** All mods, including disabled ones. */
+    public Seq<LoadedMod> getMods(){
         return mods;
     }
 
@@ -1594,7 +1548,7 @@ public class Mods implements Loadable{
 
         /** Some mods are known to cause issues with the game; this detects and returns whether a mod is manually blacklisted. */
         public boolean isBlacklisted(){
-            return blacklistedMods.contains(name) || blacklistedMods.contains(name + ":" + version);
+            return blacklistedMods.contains(name) || blacklistedMods.contains(name + ":" + version) || (repo != null && blacklistedRepos.contains(repo));
         }
 
         public String shortDescription(){
