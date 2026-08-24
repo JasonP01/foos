@@ -6,7 +6,8 @@ buildscript{
     }
 
     dependencies{
-        classpath 'com.android.tools.build:gradle:8.2.2'
+        classpath 'com.android.tools:r8:8.13.22' // required to parse kotlin 2.0.0+
+        classpath 'com.android.tools.build:gradle:8.3.2'
     }
 }
 
@@ -28,7 +29,7 @@ task deploy(type: Copy){
 }
 
 android{
-    namespace = "io.anuke.mindustry"
+    namespace = "io.anuke.mindustry.unofficial"
     buildToolsVersion = '36.0.0'
     compileSdk = 36
     sourceSets{
@@ -57,10 +58,16 @@ android{
     defaultConfig{
         Properties props = loadVersionProps()
         Integer vcode = props['androidBuildCode']?.toInteger() ?: 1
-        def versionNameResult = "$versionNumber-$versionType-${getBuildVersion().replace(" ", "-")}"
 
-        applicationId "io.anuke.mindustry"
-        minSdkVersion 21
+        // Grab from project.ext explicitly to bypass AGP 8 isolation
+        def vNum = project.ext.has("versionNumber") ? project.ext.versionNumber : "8"
+        def vType = project.ext.has("versionType") ? project.ext.versionType : "official"
+        def buildV = getBuildVersion().replace(" ", "-")
+
+        def versionNameResult = "$vNum-$vType-$buildV"
+
+        applicationId "io.anuke.mindustry.unofficial"
+        minSdkVersion 24 // android 7
         targetSdkVersion 36
 
         versionName versionNameResult
@@ -69,7 +76,9 @@ android{
         if(project.hasProperty("release")){
             props['androidBuildCode'] = (vcode + 1).toString()
         }
-        props.store(file('../core/assets/version.properties').newWriter(), null)
+        file('../core/assets/version.properties').withWriter { writer ->
+            props.store(writer, null)
+        }
 
         multiDexEnabled = true
     }
@@ -123,6 +132,11 @@ android{
 dependencies{
     implementation project(":core")
 
+    implementation files("../bouncycastle/bcprov-jdk15on.jar")
+    implementation files("../bouncycastle/bcpkix-jdk15on.jar")
+    implementation files("../bouncycastle/bctls-jdk15on.jar")
+    implementation files("../bouncycastle/bcutil-jdk15on.jar")
+
     implementation arcModule("backends:backend-android")
     implementation 'com.jakewharton.android.repackaged:dalvik-dx:9.0.0_r3'
 
@@ -154,7 +168,7 @@ task copyAndroidNatives(){
 }
 
 task run(type: Exec){
-    commandLine "${findSdkDir()}/platform-tools/adb", 'shell', 'am', 'start', '-n', 'io.anuke.mindustry/mindustry.android.AndroidLauncher'
+    commandLine "${findSdkDir()}/platform-tools/adb", 'shell', 'am', 'start', '-n', 'io.anuke.mindustry.unofficial/mindustry.android.AndroidLauncher'
 }
 
 if(!project.ext.hasSprites()){
@@ -162,5 +176,11 @@ if(!project.ext.hasSprites()){
         if(task.name == 'assembleDebug' || task.name == 'assembleRelease'){
             task.dependsOn ":tools:pack"
         }
+    }
+}
+
+afterEvaluate {
+    tasks.named("preBuild").configure {
+        dependsOn project(":core").tasks.preGen
     }
 }

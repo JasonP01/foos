@@ -320,6 +320,7 @@ public class SettingsMenuDialog extends BaseDialog{
         row();
         ScrollPane pane = pane(prefs).grow().top().get();
         pane.setFadeScrollBars(true);
+        pane.setScrollingDisabledX(true);
         pane.setCancelTouchFocus(false);
         row();
         add(buttons).fillX();
@@ -1152,7 +1153,7 @@ public class SettingsMenuDialog extends BaseDialog{
                 box.add(new Image()).update(i -> i.setDrawable(box.isOver() ? (box.isChecked() ? Tex.checkOnOver : Tex.checkOver) : box.isChecked() ? Tex.checkOn : Tex.checkOff))
                     .size(32f).padRight(8f).padLeft(-4f);
 
-                box.add(title);
+                box.add(title).left().growX().wrap();
 
                 box.update(() -> box.setChecked(settings.getBool(name)));
 
@@ -1164,7 +1165,7 @@ public class SettingsMenuDialog extends BaseDialog{
                 });
 
                 box.left();
-                addDesc(table.add(box).minWidth(Math.min(500f, Core.graphics.getWidth() / 1.2f / Scl.scl(1f))).fillX().height(45f).left().padTop(7f).get());
+                addDesc(table.add(box).minWidth(Core.graphics.getWidth() / 1.2f / Scl.scl(1f)).maxWidth(Core.graphics.getWidth() / Scl.scl() - 4f).grow().minHeight(45f).left().padTop(7f).wrap().get());
                 table.row();
             }
         }
@@ -1205,7 +1206,7 @@ public class SettingsMenuDialog extends BaseDialog{
 
                 slider.change();
 
-                addDesc(table.stack(slider, content).width(Math.min(Core.graphics.getWidth() / 1.2f / Scl.scl(1f), 500f)).left().padTop(4f).get());
+                addDesc(table.stack(slider, content).width(Math.min(Core.graphics.getWidth() / 1.2f / Scl.scl(1f), Core.graphics.getWidth() * 0.75F)).left().padTop(4f).wrap().get());
                 table.row();
             }
         }
@@ -1247,42 +1248,57 @@ public class SettingsMenuDialog extends BaseDialog{
                 table.row();
                 table.image(Tex.whiteui, Pal.accent).growX().height(3f).padTop(4f).padBottom(4f);
                 table.row();
-                table.add(collapser).left();
+                table.add(collapser).left().width(Math.min(Core.graphics.getWidth() / Scl.scl() * 0.95f, Core.graphics.getWidth()));
                 table.row();
             }
         }
 
         private void updatePref(){
             settings.defaults("updateurl", "mindustry-antigrief/mindustry-client-v8-builds");
-            if (!Version.updateUrl.isEmpty()) settings.put("updateurl", Version.updateUrl); // overwrites updateurl on every boot, shouldn't be a real issue
-            pref(new Setting("updateurl") {
+            if(!Version.updateUrl.isEmpty()) settings.put("updateurl", Version.updateUrl);
+
+            pref(new Setting("updateurl"){
                 boolean urlChanged;
 
                 @Override
-                public void add(SettingsTable table) { // Update URL with update button FINISHME: Move this to TextPref when i decide im willing to spend 6 hours doing so
+                public void add(SettingsTable table){
+                    TextField field = new TextField(settings.getString(name));
+                    field.setMessageText("mindustry-antigrief/mindustry-client-v8-builds");
 
-                    table.table(t -> {
-                        t.button(Icon.refresh, Styles.settingTogglei, 32, () -> {
-                            ui.loadfrag.show();
-                            becontrol.checkUpdate(result -> {
-                                ui.loadfrag.hide();
-                                urlChanged = false;
-                                if(!result){
-                                    ui.showInfo("@be.noupdates");
-                                } else {
-                                    becontrol.showUpdateDialog();
-                                }
-                            });
-                        }).update(u -> u.setChecked(becontrol.isUpdateAvailable() || urlChanged)).padRight(4);
-                        Label label = new Label(title);
-                        t.add(label).minWidth(label.getPrefWidth() / Scl.scl(1.0F) + 25.0F);
-                        t.field(settings.getString(name), text -> {
-                            becontrol.setUpdateAvailable(false); // Set this to false as we don't know if this is even a valid URL.
-                            urlChanged = true;
-                            settings.put(name, text);
-                            if(text.isEmpty()) settings.remove(name);
-                        }).width(450).get().setMessageText("mindustry-antigrief/mindustry-client-v8-builds");
-                    }).left().expandX().padTop(3).height(32).padBottom(3);
+                    field.changed(() -> {
+                        becontrol.setUpdateAvailable(false);
+                        urlChanged = true;
+                        settings.put(name, field.getText());
+                        if(field.getText().isEmpty()) settings.remove(name);
+                    });
+
+                    Table prefTable = table.table().left().growX()
+                        .minWidth(Core.graphics.getWidth() / 1.2f / Scl.scl(1f))
+                        .maxWidth(Core.graphics.getWidth() / Scl.scl()).padTop(3f).get();
+
+                    prefTable.add(title).left().growX().wrap();
+
+                    prefTable.button(Icon.refresh, Styles.settingTogglei, 32, () -> {
+                        ui.loadfrag.show();
+                        becontrol.checkUpdate(result -> {
+                            ui.loadfrag.hide();
+                            urlChanged = false;
+
+                            if(!result){
+                                ui.showInfo("@be.noupdates");
+                            }else{
+                                becontrol.showUpdateDialog();
+                            }
+                        });
+                    }).update(button ->
+                    button.setChecked(becontrol.isUpdateAvailable() || urlChanged)
+                    ).size(40f);
+
+                    prefTable.row();
+
+                    prefTable.add(field).colspan(2).growX().height(40f).padTop(2f);
+
+                    addDesc(prefTable);
                     table.row();
                 }
             });
@@ -1309,9 +1325,12 @@ public class SettingsMenuDialog extends BaseDialog{
                     }
                 });
 
-                Table prefTable = table.table().left().padTop(3f).get();
-                prefTable.label(() -> title);
-                prefTable.add(field).width(450);
+                Table prefTable = table.table(Styles.grayPanel).left().growX()
+                    .minWidth(Core.graphics.getWidth() / 1.2f / Scl.scl(1f))
+                    .maxWidth(Core.graphics.getWidth() / Scl.scl()).padTop(8f).get();
+                prefTable.add(title).left().padLeft(10f).growX().wrap().padTop(3f);
+                prefTable.row();
+                prefTable.add(field).growX().left().padLeft(2f).height(40F).padTop(2f).padBottom(3f);
                 addDesc(prefTable);
                 table.row();
             }

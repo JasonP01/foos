@@ -10,4 +10,10 @@
 
 -dontwarn javax.naming.**
 
+# Suppress missing JVM-specific classes used for desktop
+# AGP is no longer lenient about missing classes
+-dontwarn java.lang.management.**
+-dontwarn javax.script.**
+-dontwarn org.bouncycastle.**
+
 #-printusage out.txt

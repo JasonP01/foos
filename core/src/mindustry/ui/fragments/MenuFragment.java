@@ -94,11 +94,16 @@ public class MenuFragment{
                 }
             });
 
-            parent.fill(c -> c.bottom().left().button("", new TextButtonStyle(){{
-                font = Fonts.def;
-                fontColor = Color.white;
-                up = infoBanner;
-            }}, ui.about::show).size(84, 45).name("info"));
+            parent.fill(c -> {
+                c.bottom().left();
+                c.button(Icon.terminal, () -> ui.consolefrag.toggleMobile()).visible(() -> !ui.consolefrag.shown() && Core.settings.getBool("console")).pad(4f).size(60f).left().row();
+
+                c.button("", new TextButtonStyle(){{
+                    font = Fonts.def;
+                    fontColor = Color.white;
+                    up = infoBanner;
+                }}, ui.about::show).size(84, 45).visible(() -> !ui.consolefrag.shown()).name("info");
+            });
         }else{
             parent.fill(c -> {
                 // Uninstall foo's button

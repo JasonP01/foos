@@ -332,6 +332,7 @@ public class Vars implements Loadable{
             locales[len] = new Locale("router");
         }
 
+        Version.init();
         CacheLayer.init();
 
         if(!headless){

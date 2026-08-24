@@ -15,12 +15,13 @@ import arc.scene.ui.layout.*;
 import arc.struct.*;
 import arc.util.*;
 import dalvik.system.*;
-import mindustry.*;
 import mindustry.game.EventType.*;
 import mindustry.net.*;
 import mindustry.ui.*;
 import mindustry.ui.FileChooser.*;
 import mindustry.ui.dialogs.*;
+import mindustry.*;
+import mindustry.client.*;
 
 import java.io.*;
 import java.lang.Thread.*;
@@ -56,6 +57,12 @@ public class AndroidLauncher extends AndroidApplication{
         }
 
         initialize(new ClientLauncher(){
+
+            @Override
+            public void init(){
+                super.init();
+                add(Main.INSTANCE);
+            }
 
             @Override
             public void hide(){
