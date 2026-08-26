@@ -168,6 +168,10 @@ android/libs/
 arc-core/
 cache/
 
+# for release signing keys
+env.txt
+foos-releases.jks
+
 # ignored due to frequent branch conflicts.
 core/assets/logicids.dat
 

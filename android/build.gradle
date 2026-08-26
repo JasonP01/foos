@@ -28,6 +28,16 @@ task deploy(type: Copy){
     rename("android-release.apk", "${generateDeployName('android')}.apk")
 }
 
+def localKeystore = rootProject.file("foos-releases.jks")
+def localKeystorePassword = rootProject.file("env.txt")
+def hasLocalKeystore = localKeystore.exists() && localKeystorePassword.exists()
+
+println("Local keystore: ${localKeystore.absolutePath}")
+println("Keystore exists: ${localKeystore.exists()}")
+println("Password file exists: ${localKeystorePassword.exists()}")
+println("Local signing available: $hasLocalKeystore")
+
+
 android{
     namespace = "io.anuke.mindustry.unofficial"
     buildToolsVersion = '36.0.0'
@@ -102,6 +112,13 @@ android{
                 storePassword = System.getenv("keystore_password")
                 keyAlias = System.getenv("keystore_alias")
                 keyPassword = System.getenv("keystore_alias_password")
+            }else if(hasLocalKeystore){
+                def password = localKeystorePassword.text.trim()
+
+                storeFile = localKeystore
+                storePassword = password
+                keyAlias = "foos"
+                keyPassword = password
             }else{
                 println("No keystore property found. Releases will be unsigned.")
             }
@@ -118,9 +135,13 @@ android{
             shrinkResources = true
             proguardFiles("proguard-rules.pro")
         }
+
+        release{
+            profileable true
+        }
     }
 
-    if(project.hasProperty("RELEASE_STORE_FILE") || System.getenv("CI") == "true"){
+    if(project.hasProperty("RELEASE_STORE_FILE") || System.getenv("CI") == "true" || hasLocalKeystore){
         buildTypes{
             release{
                 signingConfig = signingConfigs.release

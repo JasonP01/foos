@@ -51,6 +51,7 @@ object Main : ApplicationListener {
             TileRecords.init()
         } else {
             keyStorage = KeyStorage(Files.createTempDirectory("keystorage").toFile())
+            signatures = Signatures(keyStorage, ntp.clock)
             communicationSystem = SwitchableCommunicationSystem(DummyCommunicationSystem(mutableListOf()))
             communicationSystem.init()
         }

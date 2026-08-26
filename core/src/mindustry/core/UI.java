@@ -709,6 +709,27 @@ public class UI implements ApplicationListener, Loadable{
         lastAnnouncement = t;
     }
 
+    /** Display text in the middle of the screen on menu, then fade out. */
+    public void announceMenu(String text, float duration){
+        if(!state.isMenu()) return;
+        Table t = new Table(Styles.black3);
+        t.touchable = Touchable.disabled;
+        t.margin(8f).add(text).style(Styles.outlineLabel).labelAlign(Align.center);
+        t.update(() -> {
+            t.setPosition(Core.graphics.getWidth()/2f, Core.graphics.getHeight()/2f, Align.center);
+            t.toFront();
+
+            if(!ui.hudfrag.shown){
+                t.remove();
+            }
+        });
+        t.actions(Actions.fadeOut(duration, Interp.pow4In), Actions.remove());
+        t.pack();
+        t.act(0.1f);
+        Core.scene.add(t);
+        lastAnnouncement = t;
+    }
+
     public void showOkText(String title, String text, Runnable confirmed){
         BaseDialog dialog = new BaseDialog(title);
         dialog.cont.add(text).width(500f).wrap().pad(4f).get().setAlignment(Align.center, Align.center);

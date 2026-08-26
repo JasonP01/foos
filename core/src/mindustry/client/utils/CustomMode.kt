@@ -21,6 +21,8 @@ enum class CustomMode(
         var hasLoaded = false
 
         override fun enable() {
+            // Cant load the mod like that on mobile anyway
+            if (mobile) return ui.announceMenu("FloodCompat auto loading does not work on mobile.", 60f)
             super.enable()
             if ((IO() || Corium()) && net.client()) {
                 var floodMod: Mods.LoadedMod? = mods.getMod("floodcompat")

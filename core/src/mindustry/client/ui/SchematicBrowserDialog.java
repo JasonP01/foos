@@ -142,7 +142,7 @@ public class SchematicBrowserDialog extends BaseDialog {
                 }).growX().get();
                 descSearchField.setMessageText("@client.schematic.searchdescription");
             }).growX().padLeft(4);
-        }).fillX().padBottom(4);
+        }).growX().padBottom(4).maxWidth(Core.graphics.getWidth() / Scl.scl());
         cont.row();
     }
 
