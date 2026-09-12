@@ -600,11 +600,23 @@ public class Logic implements ApplicationListener{
                 Groups.weather.each(w -> state.envAttrs.add(w.weather.attrs, w.opacity));
 
                 updateEntities();
+                var startTime = Time.millis();
                 Client.INSTANCE.update();
+                var endTime = Time.timeSinceMillis(startTime);
+                Log.info("\n\n\n\n");
+                Log.info("Client update took @ms", endTime);
+                Log.info(endTime);
+                Log.info("\n\n\n\n");
 
                 Events.fire(Trigger.afterGameUpdate);
             }
+            var startTime = Time.millis();
             Spectate.INSTANCE.update();
+            var endTime = Time.timeSinceMillis(startTime);
+            Log.info("\n\n\n\n");
+            Log.info("Spectate update took @ms", endTime);
+            Log.info(endTime);
+            Log.info("\n\n\n\n");
 
             if(runStateCheck){
                 checkGameState();

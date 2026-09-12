@@ -77,7 +77,7 @@ android{
         def versionNameResult = "$vNum-$vType-$buildV"
 
         applicationId "io.anuke.mindustry.unofficial"
-        minSdkVersion 24 // android 7
+        minSdkVersion 26 // android 8
         targetSdkVersion 36
 
         versionName versionNameResult
@@ -131,13 +131,38 @@ android{
             //WHY THE HELL ARE DEFAULT INTERFACES NOT BEING DESUGARED? WHY DID UPDATING AGP MAKE THIS HAPPEN?
             //When I ENABLE shrinking, r8 goes and REMOVES ALL DEFAULT INTERFACE CLASSES, which breaks mods. Why?
             //-keep class mindustry.** { *; } should *keep the classes* - WHY IS R8 REMOVING THEM?
-            minifyEnabled = true
-            shrinkResources = true
+            // minifyEnabled = true
+            // shrinkResources = true
             proguardFiles("proguard-rules.pro")
         }
 
         release{
-            profileable true
+            profileable = false
+            debuggable = false
+            shrinkResources = true
+            minifyEnabled = true
+
+            signingConfig = signingConfigs.release
+        }
+
+        profile{
+            minifyEnabled = false
+            shrinkResources = false
+
+            debuggable = false
+            profileable = true
+
+            signingConfig = signingConfigs.release
+        }
+
+        debug{
+            minifyEnabled = false
+            shrinkResources = false
+
+            debuggable = true
+            profileable = false
+
+            signingConfig = signingConfigs.release
         }
     }
 
@@ -160,6 +185,7 @@ dependencies{
 
     implementation arcModule("backends:backend-android")
     implementation 'com.jakewharton.android.repackaged:dalvik-dx:9.0.0_r3'
+    // debugImplementation 'com.android.tools.studio.leakcanary:leakcanary:1.0.0'
 
     if(!localArc){
         natives "com.github.Anuken.Arc:natives-android:$arcHash"
