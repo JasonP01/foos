@@ -65,10 +65,10 @@ public class BaseShield extends Block{
         hasPower = true;
         update = solid = true;
         rebuildable = false;
+        allowedInPayloads = false;
 
         baseShields.add(this);
         if(baseShields.size > 2) baseShields.shrink(); // Modded shields will grow the seq, we may as well just keep it as small as we can
-        canPickup = true;
     }
 
     @Override

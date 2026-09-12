@@ -86,6 +86,7 @@ public class CoreBlock extends StorageBlock{
         envEnabled |= Env.space;
         drawCached = false;
         drawDynamic = true;
+        allowedInPayloads = false;
 
         //support everything
         replaceable = false;
@@ -674,12 +675,6 @@ public class CoreBlock extends StorageBlock{
 
                 landParticleTimer = 0f;
             }
-        }
-
-        @Override
-        public boolean canPickup(){
-            //cores can never be picked up
-            return false;
         }
 
         @Override

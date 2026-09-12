@@ -1846,7 +1846,7 @@ abstract class BuildingComp implements Posc, Teamc, Healthc, Buildingc, Timerc, 
     }
 
     public boolean canPickup(){
-        return block.canPickup;
+        return block.allowedInPayloads;
     }
 
     /** Called right before this building is picked up. */
